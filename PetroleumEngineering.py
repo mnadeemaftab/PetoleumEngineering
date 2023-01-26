@@ -2,7 +2,7 @@
 """
 Created on Tue Oct 11 23:57:48 2022
 
-@author: Muhammad Nadeem Afta
+@author: Muhammad Nadeem Aftab
 """
 
 # functions to calculate gas deviation (Z) and gas formation volume factors
@@ -290,6 +290,75 @@ def ql_kargarpour(choke=64, pwh=500, GLR=500, pd=250, SG=0.85):
              
     return ql_kargarpour
 
+def gas_rate(pres = 250, temp = 120, Hw = 70, SG_gas = 0.75, yCO2 = 2, yH2S = 0.5, Di = 5.761, Do = 1.25):
+    """ to calculate the gas rate in Msc/d, using Orifice formula, Di = internal pipe dia meter, and Do is
+    orifice size used. pres in psig, temp is in def F"""
+    
+    Z = Z_DPR(SG_gas, 0, yCO2, yH2S, pres, temp)
+    
+    temp = temp + 459.67 # conversion deg F to deg R
+    pres = pres + 14.696 # convert psig to psia
+    
+    Fbp = 14.73/14.696
+    Ftb = 1 # (Base F + 460)/(60+ 460) considering Base F as 60 F
+    Fu = 24 * 10**-3 # unit conversion factor from cu ft/hr to Mcu ft/d
+    
+    B = Do/Di
+    
+    Fb1 = 200*Do**2*(1.003027-0.3135918*10**(-3)*Do**2)
+    
+    Fb2 = 1-82.00829*10**(-3)*B**2-59.93229*10**(-3)*B**3-0.3527207*B**4
+    Fb = Fb1/Fb2
+    Ftf = math.sqrt(520/temp)
+    Fg = math.sqrt(1/SG_gas)
+    Fpv = math.sqrt(1/Z)
+    
+    X = Hw/(27.7*pres)
+    GASK = 1.30 # for methan its value is 1.30
+    Y = math.sqrt(1+X) - ((0.41+0.35*B**4)* X)/(GASK*math.sqrt(1+X))
+    
+    C = Fbp*Ftb*Fu*Fb*Ftf*Fg*Fpv*Y
+    
+    gas_rate = C * math.sqrt(Hw*pres)
+    gas_rate = round(gas_rate, 3)
+    #print(C)
+    
+    return "{} Mscf/d".format(gas_rate) 
+  
+def FreeGOR(oil_API=30, SG_gas=0.75, Pres = 3500, temp = 250, GORm = 1500):
+    """ to calculate Free GOR and Rs when reservoir is saturated resevoir or gas cap reservoir. Psat is equal to Pres.
+    Pres is reserovir pressure in psi and temp is reservoir temperature in F and GORm is produced GOR"""
+    
+    # caculate Pb with produced GOR
+    Pb1 = Pb(oil_API, SG_gas, GORm, temp)
+    #print(Pb1)
+    if Pres > Pb1:
+        Psat = Pb1
+    else:
+        
+        Rs = GORm
+        while not Pres>Pb1>(Pres-Pres*0.01):
+            Psat = Pb1
+            Presdiff = (Psat-Pres)/Psat
+            #print(Presdiff)
+            Rs = Rs - Presdiff*Rs*1.3
+            Psat = Pb(oil_API, SG_gas, Rs, temp)
+            Pb1 = Psat
+            #print(Rs)
+            #print(Pb1)
+        #print(Rs)
+        Psat = Pb1
+        FreeGOR = GORm - Rs
+        #print(FreeGOR)
+    return "{} scf/stb is Rs, at {} psi Psat, {} scf/stb is Free GOR".format(round(Rs,2), round(Psat,2), round(FreeGOR,2))
+
+
+
+# below are just to check the values and printing some excercise for code confirmations
+print(FreeGOR())
+
+
+print(gas_rate())
 
 # just change choke, pwh, GLR, pd and SG in in the below list to calculate rates.
 #x = [choke, pwh, GLR, pd, SG]
